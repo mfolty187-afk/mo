@@ -1,0 +1,81 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const app = express();
+const port = 3000;
+
+app.use(bodyParser.json()); // لتحويل البيانات إلى JSON
+
+// Middleware للتوثيق
+const authenticate = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (token === "Bearer valid-token") {
+        next(); // التوثيق صحيح
+    } else {
+        res.status(401).json({ message: 'Unauthorized' });
+    }
+};
+
+// Middleware لتسجيل العمليات
+const logger = (req, res, next) => {
+    console.log(`${req.method} request made to ${req.url}`);
+    next(); // استمر في المعالجة
+};
+
+app.use(logger); // تطبيق Middleware للتسجيل
+
+// بيانات وهمية للمستخدمين
+let users = [
+    { id: 1, name: "Ali", email: "ali@example.com" },
+    { id: 2, name: "Ahmed", email: "ahmed@example.com" }
+];
+
+// GET - استرجاع جميع المستخدمين
+app.get('/users', authenticate, (req, res) => {
+    res.json(users);
+});
+
+// POST - إضافة مستخدم جديد
+app.post('/users', authenticate, (req, res) => {
+    const { name, email } = req.body;
+    if (!name || !email || !email.includes('@')) {
+        return res.status(400).json({ message: "Invalid data!" });
+    }
+    const newUser = {
+        id: users.length + 1,
+        name,
+        email
+    };
+    users.push(newUser);
+    res.status(201).json(newUser);
+});
+
+// PUT - تحديث معلومات مستخدم
+app.put('/users/:id', authenticate, (req, res) => {
+    const userId = parseInt(req.params.id);
+    const { name, email } = req.body;
+
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!name || !email || !email.includes('@')) {
+        return res.status(400).json({ message: "Invalid data!" });
+    }
+
+    user.name = name;
+    user.email = email;
+    res.json(user);
+});
+
+// DELETE - حذف مستخدم
+app.delete('/users/:id', authenticate, (req, res) => {
+    const userId = parseInt(req.params.id);
+    users = users.filter(u => u.id !== userId);
+    res.status(204).send();
+});
+
+// بدء الخادم
+app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+});
